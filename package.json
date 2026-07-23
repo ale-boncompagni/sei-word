@@ -1,0 +1,17 @@
+{
+  "name": "sei-word",
+  "version": "2.0.0",
+  "description": "Extensão Chrome que converte documentos do SEI para Word (.docx) preservando cabeçalho, rodapé, numeração e formatação.",
+  "private": true,
+  "scripts": {
+    "build": "esbuild src/content.js --bundle --outfile=content.bundle.js --format=iife --target=chrome88",
+    "watch": "npm run build -- --watch"
+  },
+  "dependencies": {
+    "docx": "^9.1.1"
+  },
+  "devDependencies": {
+    "esbuild": "^0.24.0",
+    "jsdom": "^27.0.1"
+  }
+}

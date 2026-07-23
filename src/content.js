@@ -1,9 +1,12 @@
+import { convertSeiDocumentToDocx } from './converter/htmlToDocx.js';
+import { findSelectedDocumentTitle, sanitizeFileName } from './seiTreeLookup.js';
+
 // Adiciona o botão de exportação para Word no menu do SEI
 function adicionarBotaoExportarWord() {
   if (document.getElementById('btnExportarWordSEI')) return;
   const barraAcoes = document.querySelector('#divArvoreAcoes');
   if (!barraAcoes) return;
-  const iconUrl = chrome.runtime.getURL('icons/microsoft-word-icon.png');
+  const iconUrl = chrome.runtime.getURL('icons/export-word-icon.png');
   const link = document.createElement('a');
   link.id = 'btnExportarWordSEI';
   link.title = 'Exportar para Word';
@@ -16,32 +19,25 @@ function adicionarBotaoExportarWord() {
   barraAcoes.appendChild(link);
 }
 
-// Exporta o conteúdo do iframe para um arquivo Word (.docx)
+// Exporta o conteúdo do iframe para um arquivo Word (.docx), preservando
+// cabeçalho, rodapé, numeração e formatação tal como aparecem no SEI.
 async function exportarParaWord() {
   try {
     const iframe = document.getElementById('ifrVisualizacao');
     if (!iframe) throw new Error('iframe de visualização não encontrado');
     const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+    const iframeWin = iframe.contentWindow;
     if (!iframeDoc || !iframeDoc.body) throw new Error('Conteúdo do iframe não encontrado');
 
-    const htmlContent = iframeDoc.body.innerHTML;
-    let fileName = 'Documento_SEI';
+    const documentTitle = findSelectedDocumentTitle();
+    const blob = await convertSeiDocumentToDocx(iframeDoc, iframeWin, documentTitle);
+
     const now = new Date();
     const dateStr = now.toISOString().split('T')[0];
-    fileName = `${fileName}_${dateStr}`;
+    const fileName = documentTitle
+      ? sanitizeFileName(documentTitle)
+      : `Documento_SEI_${dateStr}`;
 
-    const styledHtml = `<!DOCTYPE html><html><head><meta charset='UTF-8'>
-      <style>
-        body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; margin: 0; }
-        .wrapper { box-sizing: border-box; }
-        p, div, span { font-family: 'Times New Roman', Times, serif !important; font-size: 12pt !important; text-align: justify; line-height: 1.5; margin-bottom: 0; }
-        table { border-collapse: collapse; width: 100%; table-layout: fixed; font-family: 'Times New Roman', Times, serif; font-size: 10pt; }
-        td, th { border: 0.5pt solid #000; padding: 2pt 2pt; font-family: 'Times New Roman', Times, serif; font-size: 10pt; word-break: break-all; overflow-wrap: break-word; white-space: normal; }
-        img { max-width: 100%; height: auto; }
-      </style>
-    </head><body><div class="wrapper">${htmlContent}</div></body></html>`;
-
-    const blob = htmlDocx.asBlob(styledHtml);
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
@@ -52,6 +48,7 @@ async function exportarParaWord() {
     URL.revokeObjectURL(url);
   } catch (error) {
     console.error('Erro na exportação para Word:', error);
+    throw error;
   }
 }
 
@@ -68,4 +65,5 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     exportarParaWord().then(() => sendResponse({ success: true })).catch(() => sendResponse({ success: false }));
     return true;
   }
-}); 
+  return undefined;
+});
